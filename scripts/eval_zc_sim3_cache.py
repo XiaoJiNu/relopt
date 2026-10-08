@@ -41,9 +41,11 @@ def forward_cached(model, feat1, pos1, shape1, feat2, pos2, shape2):
 
 @torch.no_grad()
 def encode_one(model, img, ts, device):
+    if not torch.is_tensor(ts):
+        ts = torch.as_tensor(np.asarray(ts))
     with torch.cuda.amp.autocast(enabled=True):
         x, pos, _ = model._encode_image(img.to(device), ts.to(device))
-    return x, pos
+    return x.detach(), pos
 
 
 def main():
@@ -84,7 +86,7 @@ def main():
         f1 = feat_db[sel]
         p1 = pos_db[None].repeat(n, 1, 1)
         s1 = torch.as_tensor(np.stack([ts_db] * n))  # db 全同形状(640x480→同一 true_shape)
-        with torch.cuda.amp.autocast(enabled=True):
+        with torch.no_grad(), torch.cuda.amp.autocast(enabled=True):
             q2d = forward_cached(model, f1, p1, s1, f2, p2, shape2)
         torch.cuda.synchronize()
         t_cache += time.time() - t0
