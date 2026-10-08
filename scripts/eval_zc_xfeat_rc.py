@@ -25,8 +25,21 @@ import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 
 from eval_zc_netvlad import SCENES, pose_path, ls_solve, med_solve, heading, circmean  # noqa: E402
-from eval_zc_xfeat import geom  # noqa: E402  # 上游已 return (R, t̂, ninl)
 from modules.xfeat import XFeat  # noqa: E402
+
+
+def geom_all(pts_q, pts_d):
+    """eval_zc_xfeat.geom 的守卫延后版：返回 (R, t̂, ninl, ang)，不在 25° 处丢弃——
+    守卫在聚合处按 --guard-deg 施加，逐候选 dump 支持离线守卫扫（§3.1c）。"""
+    F, inl = cv2.findFundamentalMat(pts_q, pts_d, cv2.FM_RANSAC, 1.0, 0.999)
+    if F is None or inl is None or inl.sum() < 6:
+        return None
+    from eval_zc_netvlad import K  # 同一内参口径
+    ok, R, t, _ = cv2.recoverPose(K.T @ F @ K, pts_q[inl.ravel() == 1], pts_d[inl.ravel() == 1], K)
+    if not ok or ok < 6:
+        return None
+    ang = float(np.degrees(np.arccos(np.clip((np.trace(R) - 1) / 2, -1, 1))))
+    return R, t.ravel() / np.linalg.norm(t), int(inl.sum()), ang
 
 AGGS = ("snap", "ls", "med")          # 位置聚合口径，与归档一致
 VARIANTS = ("base", "rc", "circ3")    # 朝向口径：snap base/rc；circ3 = rc 的 top-3 内点圆均值
@@ -63,6 +76,7 @@ def main():
     ap.add_argument("--guard-deg", type=float, default=25.0, help="§3.1c 守卫角 sweep")
     ap.add_argument("--max-query", type=int, default=0)
     ap.add_argument("--dump", action="store_true", help="逐帧 npz（P1-1 EKF 输入）")
+    ap.add_argument("--dump-cands", action="store_true", help="逐候选 npz（§3.1c 守卫角/阈值离线扫，零重推理）")
     ap.add_argument("--out", default="")
     args = ap.parse_args()
 
@@ -93,7 +107,9 @@ def main():
         return sp_cache[p]
 
     acc = {(a, v): [] for a in AGGS for v in VARIANTS}
-    dump = {"name": [], "gt": [], "ninl": [], "ncand": [], "solve": []}
+    dump = {"name": [], "gt": [], "ninl": [], "ncand": [], "solve": [],
+            "pred_xy": [], "pred_h": [], "pred_h_rc": []}
+    cdump = {k: [] for k in ("qi", "c", "d", "ninl", "ang", "h_db", "h_rc")}
     for k in acc:
         dump[f"ep_{'_'.join(k)}"] = []
         dump[f"eth_{'_'.join(k)}"] = []
@@ -127,19 +143,32 @@ def main():
                 pts_q, pts_d = xfeat.match_xfeat_star(img(qp), img(dp))
             if len(pts_q) < 60:
                 continue
-            tv = geom(pts_q, pts_d)
+            tv = geom_all(pts_q, pts_d)
             if tv is None:
                 continue
-            R, t, ninl = tv
+            R, t, ninl, ang = tv
             A_db = Tdb[:3, :3]
             h_db = heading(A_db)
-            h_rc = rel_yaw(A_db, R, h_db) if np.degrees(np.arccos(np.clip((np.trace(R) - 1) / 2, -1, 1))) <= args.guard_deg else h_db
-            cands.append(dict(c=Tdb[:3, 3], d=A_db @ t, ninl=ninl, h_db=h_db, h_rc=h_rc))
+            h_rc = rel_yaw(A_db, R, h_db)
+            if args.dump_cands:  # dump 不施守卫：守卫角 sweep 离线做（§3.1c）
+                cdump["qi"].append(n_query - 1)
+                cdump["c"].append(Tdb[:3, 3])
+                cdump["d"].append(A_db @ t)
+                cdump["ninl"].append(ninl)
+                cdump["ang"].append(ang)
+                cdump["h_db"].append(h_db)
+                cdump["h_rc"].append(h_rc)
+            if ang > args.guard_deg:   # 聚合级守卫 = 上游 geom() 的 25°（base 与归档一致的前提）
+                continue
+            cands.append(dict(c=Tdb[:3, 3], d=A_db @ t, ninl=ninl, h_db=h_db, h_rc=h_rc, ang=ang))
         t_ms.append((time.time() - tq) * 1000)
         dump["ncand"].append(len(cands))
         if not cands:
             dump["solve"].append(0)
             dump["ninl"].append(0)
+            dump["pred_xy"].append([np.nan, np.nan])
+            dump["pred_h"].append(np.nan)
+            dump["pred_h_rc"].append(np.nan)
             for k in acc:
                 acc[k].append((np.inf, np.inf))
                 dump[f"ep_{'_'.join(k)}"].append(np.inf)
@@ -160,6 +189,9 @@ def main():
             xy = solver(cands) if len(cands) >= 2 else None
             pos[mode] = float(np.linalg.norm(xy - Tgt[:3, 3][:2])) if xy is not None else np.inf
         pos["snap"] = float(np.linalg.norm(best["c"][:2] - Tgt[:3, 3][:2]))
+        dump["pred_xy"].append(best["c"][:2])          # EKF 平移观测（snap）
+        dump["pred_h"].append(best["h_db"])            # EKF 旋转观测备选（base）
+        dump["pred_h_rc"].append(best["h_rc"])         # EKF 旋转观测备选（rc）
         for a in AGGS:
             for v in VARIANTS:
                 e = ey[(a, v)]
@@ -188,6 +220,11 @@ def main():
         p = (args.out or f"results/zc_xfeat_rc_{args.scene}.json").replace(".json", ".npz")
         np.savez_compressed(p, **d)
         print("dumped ->", p)
+    if args.dump_cands:
+        c = {k: np.array(v, dtype=float) for k, v in cdump.items()}
+        c["gt"] = np.array(dump["gt"])
+        np.savez_compressed((args.out or f"results/zc_xfeat_rc_{args.scene}.json").replace(".json", "_cands.npz"), **c)
+        print(f"dumped cands -> {c['qi'].shape[0]} 候选")
 
 
 if __name__ == "__main__":

@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 cache/
 logs/
+results/*_cands.npz
+logs/
