@@ -1,0 +1,41 @@
+{
+ "lawn_sameday": {
+  "n": 616,
+  "ekf_ep_mean": 0.231,
+  "ekf_ep_med": 0.197,
+  "ekf_ep_p90": 0.393,
+  "ekf_eh_mean": 3.18,
+  "ekf_eh_med": 3.07,
+  "ekf_eh_p90": 5.71,
+  "single_ep_med": 0.211,
+  "single_ep_p90": 0.457,
+  "single_eh_med": 2.54,
+  "single_eh_p90": 11.1
+ },
+ "lawn_crossday": {
+  "n": 763,
+  "ekf_ep_mean": 0.386,
+  "ekf_ep_med": 0.275,
+  "ekf_ep_p90": 0.742,
+  "ekf_eh_mean": 3.01,
+  "ekf_eh_med": 2.8,
+  "ekf_eh_p90": 3.86,
+  "single_ep_med": 0.311,
+  "single_ep_p90": 0.914,
+  "single_eh_med": 3.04,
+  "single_eh_p90": 9.78
+ },
+ "0923": {
+  "n": 755,
+  "ekf_ep_mean": 0.179,
+  "ekf_ep_med": 0.144,
+  "ekf_ep_p90": 0.322,
+  "ekf_eh_mean": 0.55,
+  "ekf_eh_med": 0.53,
+  "ekf_eh_p90": 0.94,
+  "single_ep_med": 0.166,
+  "single_ep_p90": 0.41,
+  "single_eh_med": 1.09,
+  "single_eh_p90": 2.98
+ }
+}

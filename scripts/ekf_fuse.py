@@ -70,6 +70,7 @@ def main():
     ap.add_argument("--gate-m", type=float, default=3.0)
     ap.add_argument("--reloc3r", action="append", default=[], metavar="scene=npz",
                     help="Reloc3r pred 位姿 dump（eval_zc_sim3_cache.py --out 产物）")
+    ap.add_argument("--skip-warmup", type=int, default=0, help="去掉序列开头 N 帧再统计（PF 瞬态同型口径）")
     ap.add_argument("--out", default="results/ekf_fuse.json")
     args = ap.parse_args()
     r3map = dict(a.split("=", 1) for a in args.reloc3r)
@@ -98,6 +99,8 @@ def main():
         single_ep = np.linalg.norm(obs_xy - gt_xy, axis=1)
         single_eh = np.degrees(np.abs(wrap(obs_h - gt_h)))
         ok = np.isfinite(fe)
+        if args.skip_warmup:
+            ok[:args.skip_warmup] = False
         res[scene] = {"n": int(ok.sum()),
                       "ekf_ep_mean": round(float(fe[ok].mean()), 3), "ekf_ep_med": round(float(np.median(fe[ok])), 3),
                       "ekf_ep_p90": round(float(np.percentile(fe[ok], 90)), 3),
