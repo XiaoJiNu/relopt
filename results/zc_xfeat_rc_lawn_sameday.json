@@ -5,7 +5,7 @@
  "guard_deg": 25.0,
  "n_query": 676,
  "solve_rate": 1.0,
- "query_ms_mean": 153.4,
+ "query_ms_mean": 150.9,
  "snap_base": {
   "n": 676,
   "n_ok": 676,
