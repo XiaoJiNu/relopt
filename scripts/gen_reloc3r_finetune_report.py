@@ -49,7 +49,7 @@ def heading_unit(scene, name, names_all):
 
 def a2_split(arr, scene):
     """返回 (沿轨 p90, 跨轨 p90)：dvec 在 GT 航向上的投影。names=奇/偶子集, 航向从全 bag 取。"""
-    names = [str(x)[:-10] for x in arr['names']]
+    names = [str(x) for x in arr['names']]  # eval_zc_sim3 存的是已去 .color.png 的名字
     all_names = sorted(n[:-10] for n in os.listdir(f"{RELOC}/data/{ROOT[scene]}/{Q_BAG[scene]}/seq-01")
                        if n.endswith('.color.png'))
     along, cross = [], []
@@ -77,12 +77,14 @@ def main():
     a = ap.parse_args()
     ts = datetime.now().strftime('%Y%m%d%H%M')
     out = a.out or f'{DOCS}/ZC数据微调Reloc3r与XFeat并回测方案_Reloc3r实验报告_{ts}.md'
+    MIX50 = os.path.exists(f'{RELOC}/checkpoints/zc_finetune_mix50/checkpoint-best.pth')
     L = []
     add = L.append
     fo, ffx = jget(f'{RES}/forgetting_official.json'), jget(f'{RES}/forgetting_ft.json')
     tr = {}  # 训练摘要
     for tag, d in [('主协议(even→odd)', 'checkpoints/zc_finetune'),
-                   ('上限行(all→all)', 'checkpoints/zc_finetune_all')]:
+                   ('上限行(all→all)', 'checkpoints/zc_finetune_all'),
+                   ('遗忘补救(混50%)', 'checkpoints/zc_finetune_mix50')]:
         lp = f'{RELOC}/{d}/log.txt'
         if os.path.exists(lp):
             rows = [json.loads(l) for l in open(lp) if l.strip()]
@@ -104,14 +106,18 @@ def main():
     add('| 场景 | 权重 | n | ep mean/med/p90 (m) | eθ mean/med/p90 (°) |')
     add('| ---- | ---- | - | ----------------- | ------------------ |')
     rows_main = {}
+    ARMS = [('_official_odd', '官方基线'), ('_ft_odd', 'ZC 微调(MD混30%)'),
+            ('_mix50_odd', 'ZC 微调(MD混50%, 遗忘补救)')]
     for key, cn in SCENES:
-        for w, suf, lbl in [('off', '_official_odd', '官方基线'), ('ft', '_ft_odd', 'ZC 微调')]:
+        for suf, lbl in ARMS:
+            if suf.startswith('_mix50') and not os.path.exists(f'{SIM3}/res_{key}_sim5_bm3{suf}.npz'):
+                continue  # 补救链未跑则不出行
             arr = load(key, suf)
             if arr is None:
                 add(f'| {cn} {key} | {lbl} | 待测 | 待测 | 待测 |')
             else:
                 add(f'| {cn} {key} | {lbl} | {len(arr["terr"])} | {six(arr["terr"])} | {six(arr["rerr"])} |')
-                rows_main[(key, w)] = arr
+                rows_main[(key, 'off' if 'official' in suf else ('mix50' if 'mix50' in suf else 'ft'))] = arr
     add('')
     add('## 2. 全训全测上限行（含 pair 级泄漏，只作记忆上界，不得当泛化）')
     add('')
@@ -136,9 +142,14 @@ def main():
     if ffx:
         lim = fo['terr_deg_med'] * 1.1 if fo else None
         ok = ('✅' if ffx['terr_deg_med'] <= lim else '❌') if lim else '待官方'
-        add(f"| finetuned | {ffx['terr_deg_med']:.3f} | {ffx['rerr_deg_med']:.3f} | {ok} |")
+        add(f"| finetuned(混30%) | {ffx['terr_deg_med']:.3f} | {ffx['rerr_deg_med']:.3f} | {ok} |")
     else:
-        add('| finetuned | 待测 | 待测 | |')
+        add('| finetuned(混30%) | 待测 | 待测 | |')
+    fmx = jget(f'{RES}/forgetting_mix50.json')
+    if fmx:
+        lim = fo['terr_deg_med'] * 1.1 if fo else None
+        ok = ('✅' if fmx['terr_deg_med'] <= lim else '❌') if lim else '待官方'
+        add(f"| finetuned(混50%补救) | {fmx['terr_deg_med']:.3f} | {fmx['rerr_deg_med']:.3f} | {ok} |")
     add('')
     add('## 4. 验收判定（方案 §7）')
     add('')
