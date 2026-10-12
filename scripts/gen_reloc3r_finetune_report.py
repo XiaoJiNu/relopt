@@ -48,7 +48,7 @@ def heading_unit(scene, name, names_all):
 
 
 def a2_split(arr, scene):
-    """返回 (沿轨 p90, 跨轨 p90)：dvec 在 GT 航向上的投影。names=奇/偶子集, 航向从全 bag 取。"""
+    """返回 (沿轨列表, 跨轨列表)：dvec 在 GT 航向上的投影。names=奇/偶子集, 航向从全 bag 取。"""
     names = [str(x) for x in arr['names']]  # eval_zc_sim3 存的是已去 .color.png 的名字
     all_names = sorted(n[:-10] for n in os.listdir(f"{RELOC}/data/{ROOT[scene]}/{Q_BAG[scene]}/seq-01")
                        if n.endswith('.color.png'))
@@ -62,9 +62,7 @@ def a2_split(arr, scene):
         a = abs(float(dv @ u))
         along.append(a)
         cross.append(float(np.linalg.norm(dv - a * u)))
-    if not along:
-        return (None, None)
-    return (np.percentile(along, 90), np.percentile(cross, 90))
+    return (np.array(along) if along else None, np.array(cross) if cross else None)
 
 
 def jget(path):
@@ -187,21 +185,22 @@ def main():
     if not gates:
         add('- 待回测数据齐后判定。')
     add('')
-    add('## 5. A2 沿轨分量（dvec 沿/跨 GT 航向，p90, m）')
+    add('## 5. A2 沿轨分量（dvec 沿/跨 GT 航向投影，mean/med/p90, m）')
     add('')
-    add('| 场景 | 权重 | 沿轨 | 跨轨 |')
+    add('| 场景 | 权重 | 沿轨 mean/med/p90 | 跨轨 mean/med/p90 |')
     add('| ---- | ---- | ---- | ---- |')
     any_a2 = False
     for key, cn in SCENES:
-        for w, suf, lbl in [('off', '_official_odd', '官方基线'), ('ft', '_ft_odd', 'ZC 微调')]:
-            arr = rows_main.get((key, w))
+        for w, lbl in [('off', '官方基线'), ('ft', 'ZC 微调(混30%)'), ('mix50', 'ZC 微调(混50%)')]:
+            suf = {'off': '_official_odd', 'ft': '_ft_odd', 'mix50': '_mix50_odd'}[w]
+            arr = load(key, suf)
             if arr is not None and 'dvec' in arr.files:
                 al, cr = a2_split(arr, key)
                 if al is not None:
-                    add(f'| {cn} {key} | {lbl} | {al:.2f} | {cr:.2f} |')
+                    add(f'| {cn} {key} | {lbl} | {six(al)} | {six(cr)} |')
                     any_a2 = True
     if not any_a2:
-        add('| （dvec 记录自本次改动起生效；旧 npz 无该字段则留空） | | | |')
+        add('| （dvec 记录自 eval_zc_sim3 改动起生效；旧 npz 无该字段则留空） | | | |')
     add('')
     add('## 6. 训练过程摘要')
     add('')
