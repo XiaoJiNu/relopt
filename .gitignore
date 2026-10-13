@@ -4,3 +4,4 @@ cache/
 logs/
 results/*_cands.npz
 logs/
+results/*.npz
