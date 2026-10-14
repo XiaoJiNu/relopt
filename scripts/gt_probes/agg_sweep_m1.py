@@ -63,12 +63,12 @@ def stats(T, V, gt):
                 cross_cm=[round(float(x * 100), 1) for x in (cross.mean(), np.median(cross), np.percentile(cross, 90))])
 
 
-def run(dfile, K, r, agree, gate_m):
+def run(dfile, K, r, agree, gate_m, reject_m):
     d = np.load(dfile)
     pdb, pq2d, gt = d["pdb"], d["pq2d"], d["gt"]
     dgt = np.gradient(gt[:, :2, 3], axis=0)  # 离线口径的运动增量（EKF 同款 GT-delta 运动模型）
     out = {}
-    for variant in ("bm3", "a1", "dual", "dual_gate"):
+    for variant in ("bm3", "a1", "dual", "dual_gate", "dual_gate_rej"):
         T, V, prev_pos = [], [], None
         for i in range(len(gt)):
             Rt_a1, Rt_m, ok = sweep_frame(pdb[i], pq2d[i], pdb[i].shape[0], K, r, agree)
@@ -83,6 +83,8 @@ def run(dfile, K, r, agree, gate_m):
                 Rt = Rt_m
                 if ok or (pred is not None and np.linalg.norm(Rt_a1[:2, 3] - pred) <= gate_m):
                     Rt = Rt_a1
+            if variant == "dual_gate_rej" and pred is not None and np.linalg.norm(Rt[:2, 3] - pred) > reject_m:
+                Rt = Rt.copy(); Rt[:2, 3] = pred  # M1 方法3-lite: 聚合结果跳变>reject_m 冻结为预测位（吸收残余 look-alike 翻转）
             prev_pos = Rt[:3, 3]
             dv = Rt[:3, 3] - gt[i][:3, 3]
             T.append(float(np.linalg.norm(dv))); V.append(dv)
@@ -99,12 +101,13 @@ if __name__ == "__main__":
     ap.add_argument("--r", type=float, default=3.0)
     ap.add_argument("--agree", type=float, default=1.0)
     ap.add_argument("--gate-m", type=float, default=3.0)
+    ap.add_argument("--reject-m", type=float, default=0.5)
     ap.add_argument("--out", default="/data/code/reLocation-all/relopt/scripts/gt_probes/agg_sweep_m1.json")
     a = ap.parse_args()
     res = {}
     for f in a.dump:
-        key = f.split("cands_")[1][:6]
-        res[key] = run(f, a.K, a.r, a.agree, a.gate_m)
+        key = f.split("cands_")[1].split("_K")[0]
+        res[key] = run(f, a.K, a.r, a.agree, a.gate_m, a.reject_m)
         print(key)
         for k, v in res[key].items():
             print("  ", k, v)

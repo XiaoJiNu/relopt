@@ -38,7 +38,7 @@ def yaw_of(R):
     return math.atan2(R[1, 2], R[0, 2])
 
 
-def rescore(dfile, K=5, r=3.0, agree=1.0, gate=3.0):
+def rescore(dfile, K=5, r=3.0, agree=1.0, gate=3.0, rej=2.0):
     key = os.path.basename(dfile).split("cands_")[1].split("_K")[0]
     _, db_bag, q_bag = SC[key]
     d = np.load(dfile)
@@ -62,22 +62,34 @@ def rescore(dfile, K=5, r=3.0, agree=1.0, gate=3.0):
         prev_pos = None
         dgt = np.gradient(gt[:, :2, 3], axis=0)
         EP, ET = [], []
+        DE = []
         for i in range(len(gt)):
             Rt_a1, Rt_m, ok = sweep_frame(pdb[i], pq2d[i], pdb[i].shape[0], K, r, agree)
             pred = None if prev_pos is None else prev_pos[:2] + dgt[i]
             if variant == "bm3":
                 Rt = Rt_m
-            else:  # dualgate = agg_sweep_m1.dual_gate / eval_zc_sim3 SIM3_AGG=dualgate 同语义
+            else:  # dualgate = eval_zc_sim3 SIM3_AGG=dualgate + REJ 同语义
                 Rt = Rt_a1 if (ok or (pred is not None and np.linalg.norm(Rt_a1[:2, 3] - pred) <= gate)) else Rt_m
+                if rej > 0 and pred is not None and np.linalg.norm(Rt[:2, 3] - pred) > rej:
+                    Rt = Rt.copy(); Rt[:2, 3] = pred
             prev_pos = Rt[:3, 3]
             pe = w_db * (Rt[0, 3] + 1j * Rt[1, 3]) + o_db
-            EP.append(float(np.abs(pe - (cam_enu_q[i, 0] + 1j * cam_enu_q[i, 1]))))
+            de = pe - (cam_enu_q[i, 0] + 1j * cam_enu_q[i, 1])
+            EP.append(float(abs(de)))
+            DE.append(de)
             ET.append(abs(math.degrees(wrap(yaw_of(Rt[:3, :3]) - gt_yaw[i]) - dw_off)))
         EP, ET = np.array(EP), np.array(ET)
+        DE = np.array(DE)
+        tang = np.gradient(cam_enu_q, axis=0)
+        tang = tang[:, 0] + 1j * tang[:, 1]
+        tang /= (np.abs(tang) + 1e-9)
+        al = np.abs((DE * np.conj(tang)).real); cr = np.abs((DE * np.conj(tang)).imag)
         out[variant] = dict(ep_mean=round(float(EP.mean()), 4), ep_med=round(float(np.median(EP)), 4),
                             ep_p90=round(float(np.percentile(EP, 90)), 4), n_gt0p5=int((EP > 0.5).sum()),
                             et_mean=round(float(ET.mean()), 3), et_med=round(float(np.median(ET)), 3),
-                            et_p90=round(float(np.percentile(ET, 90)), 3))
+                            et_p90=round(float(np.percentile(ET, 90)), 3),
+                            along_cm=[round(float(x * 100), 1) for x in (al.mean(), np.median(al), np.percentile(al, 90))],
+                            cross_cm=[round(float(x * 100), 1) for x in (cr.mean(), np.median(cr), np.percentile(cr, 90))])
         # 同帧集 /map 口径对照（不扣真值误差）——证明"扣掉的是真值分歧不是模型误差"
     out["_note"] = f"yaw_off_db_off_q_deg={math.degrees(dw_off):.3f}"
     return out
