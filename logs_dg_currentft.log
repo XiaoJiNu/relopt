@@ -1,0 +1,34 @@
+Model loaded from  siyan824/reloc3r-512
+<All keys matched successfully>
+finetuned weights loaded: checkpoints/zc_finetune/checkpoint-best.pth
+/data/code/reLocation-all/reloc3r/reloc3r/reloc3r_relpose.py:188: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=bool(use_amp)):
+/data/code/reLocation-all/reloc3r/reloc3r/reloc3r_relpose.py:159: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+062224 sim5_dg_ft_odd: n=338 terr mean/med/p90 = 0.07/0.05/0.14 | rerr mean/med/p90 = 0.43/0.34/0.72 | relpose 357 ms/帧
+Model loaded from  siyan824/reloc3r-512
+<All keys matched successfully>
+finetuned weights loaded: checkpoints/zc_finetune/checkpoint-best.pth
+/data/code/reLocation-all/reloc3r/reloc3r/reloc3r_relpose.py:188: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=bool(use_amp)):
+/data/code/reLocation-all/reloc3r/reloc3r/reloc3r_relpose.py:159: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+081533 sim5_dg_ft_odd: n=411 terr mean/med/p90 = 0.14/0.06/0.16 | rerr mean/med/p90 = 0.48/0.41/0.78 | relpose 358 ms/帧
+Model loaded from  siyan824/reloc3r-512
+<All keys matched successfully>
+finetuned weights loaded: checkpoints/zc_finetune/checkpoint-best.pth
+/data/code/reLocation-all/reloc3r/reloc3r/reloc3r_relpose.py:188: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=bool(use_amp)):
+/data/code/reLocation-all/reloc3r/reloc3r/reloc3r_relpose.py:159: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+0923 sim5_dg_ft_odd: n=407 terr mean/med/p90 = 0.10/0.07/0.19 | rerr mean/med/p90 = 0.31/0.25/0.54 | relpose 356 ms/帧
+tureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=bool(use_amp)):
+/data/code/reLocation-all/reloc3r/reloc3r/reloc3r_relpose.py:159: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+Traceback (most recent call last):
+  File "/data/code/reLocation-all/reloc3r/eval_zc_sim3.py", line 121, in <module>
+    main(sys.argv[1])
+  File "/data/code/reLocation-all/reloc3r/eval_zc_sim3.py", line 90, in main
+    cont = prev_pos is not None and np.linalg.norm(Rt_a1[:2, 3] - (prev_pos + DGT[qi])) <= gate
+ValueError: operands could not be broadcast together with shapes (3,) (2,) 

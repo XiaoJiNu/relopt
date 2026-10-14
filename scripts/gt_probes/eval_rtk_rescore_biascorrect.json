@@ -1,0 +1,65 @@
+{
+ "062224": {
+  "bm3": {
+   "ep_mean": 0.0707,
+   "ep_med": 0.042,
+   "ep_p90": 0.1285,
+   "n_gt0p5": 3,
+   "et_mean": 0.285,
+   "et_med": 0.186,
+   "et_p90": 0.569
+  },
+  "dualgate": {
+   "ep_mean": 0.0631,
+   "ep_med": 0.0421,
+   "ep_p90": 0.1285,
+   "n_gt0p5": 1,
+   "et_mean": 0.286,
+   "et_med": 0.186,
+   "et_p90": 0.569
+  },
+  "_note": "yaw_off_db_off_q_deg=0.081"
+ },
+ "081533": {
+  "bm3": {
+   "ep_mean": 0.2359,
+   "ep_med": 0.0489,
+   "ep_p90": 0.1493,
+   "n_gt0p5": 9,
+   "et_mean": 1.223,
+   "et_med": 1.213,
+   "et_p90": 1.677
+  },
+  "dualgate": {
+   "ep_mean": 0.1383,
+   "ep_med": 0.0511,
+   "ep_p90": 0.1507,
+   "n_gt0p5": 5,
+   "et_mean": 1.213,
+   "et_med": 1.208,
+   "et_p90": 1.657
+  },
+  "_note": "yaw_off_db_off_q_deg=1.306"
+ },
+ "0923": {
+  "bm3": {
+   "ep_mean": 0.1006,
+   "ep_med": 0.0678,
+   "ep_p90": 0.1923,
+   "n_gt0p5": 6,
+   "et_mean": 0.521,
+   "et_med": 0.505,
+   "et_p90": 0.844
+  },
+  "dualgate": {
+   "ep_mean": 0.1004,
+   "ep_med": 0.0678,
+   "ep_p90": 0.1923,
+   "n_gt0p5": 6,
+   "et_mean": 0.521,
+   "et_med": 0.509,
+   "et_p90": 0.844
+  },
+  "_note": "yaw_off_db_off_q_deg=0.553"
+ }
+}

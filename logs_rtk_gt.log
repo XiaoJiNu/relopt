@@ -1,0 +1,8 @@
+  WARN 20260921_064638: cam lever std=[0.019 0.023] m (>2cm, /map 量化噪声)
+[lawn] shared map->ENU rotation = 90.020 deg
+  20260921_064638: resid p50/p90=0.071/0.162 m | ant lever u=(-0.378,-0.210) | off=93.310° | frames=690
+  20260921_062224: resid p50/p90=0.061/0.129 m | ant lever u=(-0.377,-0.167) | off=93.228° | frames=676
+  20260920_081533: resid p50/p90=0.060/0.144 m | ant lever u=(-0.391,-0.191) | off=92.004° | frames=823
+[bldg] shared map->ENU rotation = 90.000 deg
+  20260923_055425_real_robot_record_external_lz4: resid p50/p90=0.055/0.105 m | ant lever u=(-0.360,-0.218) | off=91.419° | frames=894
+  20260923_060415_real_robot_record_external_lz4: resid p50/p90=0.049/0.097 m | ant lever u=(-0.360,-0.183) | off=90.866° | frames=815
