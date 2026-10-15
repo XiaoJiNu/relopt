@@ -98,10 +98,11 @@ def rescore(dfile, K=5, r=3.0, agree=1.0, gate=3.0, rej=2.0):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--K", type=int, default=5)
+    ap.add_argument("--tag", default="ft")  # 权重臂: ft | ftM | official
     a = ap.parse_args()
     res = {}
     for k in SC:
-        f = f"/data/code/reLocation-all/reloc3r/data/zc_sim3/cands_{k}_K10_ft_odd.npz"
+        f = f"/data/code/reLocation-all/reloc3r/data/zc_sim3/cands_{k}_K10_{a.tag}_odd.npz"
         res[k] = rescore(f, K=a.K)
         print(k, json.dumps(res[k], ensure_ascii=False))
-    json.dump(res, open(f"{RELOPT}/scripts/gt_probes/eval_rtk_rescore.json", "w"), indent=1)
+    json.dump(res, open(f"{RELOPT}/scripts/gt_probes/eval_rtk_rescore_{a.tag}.json", "w"), indent=1)
