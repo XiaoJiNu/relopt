@@ -1,9 +1,9 @@
-# ZC Phase2：ENU 旁路重写 + ZC-only 微调（进行中）
+# ZC Phase2：ENU 旁路重写 + ZC-only 微调（已完成）
 
 - **日期**：2026-10-23（Asia/Shanghai）
 - **机器**：拯救者 `252f7d1f-95fc-44c6-94d1-8f76153ee6af`
 - **依据**：审核稿 §Phase2；讨论结论「统一 ENU」；用户已批准继续 Phase2
-- **红线**：不覆盖 `data/zc_fix` / `zc_0923` pose；不 sudo；不 push；绝对指标必须标 **GT=ENU/RTK**；诚实写 RTK 底噪可能挡 cross&lt;3cm
+- **红线**：不覆盖 `data/zc_fix` / `zc_0923` pose；不 sudo；不 push；绝对指标必须标 **GT=ENU/RTK**；诚实写 RTK 底噪可能挡 cross&lt;3cm；**勿宣称 cross&lt;3cm 已达标**
 
 ---
 
@@ -14,9 +14,9 @@
 | A 旁路 ENU pose | ✅ 完成 |
 | B MegaLoc 对（ENU） | ✅ 完成 |
 | C SMOKE 微调 | ✅ 通过（1 epoch） |
-| C 满训 30 epoch | 🔄 进行中 |
-| D 自测（ENU 口径） | ⏳ 待满训结束 |
-| E 本文档 | 🔄 进行中 → 收工补全 |
+| C 满训 30 epoch | ✅ 完成（Training time 6:37:32，00:25→07:03 CST） |
+| D 自测（ENU 口径） | ✅ 完成（三场景 `eval_zc_sim3` + §4.4 along/cross） |
+| E 本文档 | ✅ 收工 |
 
 ---
 
@@ -94,26 +94,73 @@ DATA_TAG=enu python relopt/scripts/gt_probes/regen_pairs_megaloc.py
 - `SMOKE=1` → `checkpoints/_smoke_zc_only_enu`，1 epoch 通过
 - 日志：`/home/yr/grok-bot-work/logs_zc_enu/smoke_zc_only_enu.log`
 
-### 3.3 满训（进行中）
+### 3.3 满训（已完成）
 
 | 项 | 值 |
 | :--- | :--- |
-| PID | **200373**（bash 包装 200370） |
+| PID | 200373（已结束） |
 | 日志 | `/home/yr/grok-bot-work/logs_zc_enu/finetune_zc_only_enu_20261023_002551.log` |
-| 开始 | 2026-10-23 00:25 CST |
-| 节奏 | ~1500 it/epoch × ~0.48 s ≈ 12 min 训 + ~1 min eval |
-| ETA | **约 06:00–06:30 CST**（30 epoch ≈ 5.5–6.5 h） |
-| 日志缓冲 | 当前 nohup 下 stdout 块缓冲；盯 `events.out.tfevents*` / GPU / ckpt；脚本已加 PYTHONUNBUFFERED 供重跑 |
-| GPU | RTX 5090 Laptop，占用约 11–18 GB |
+| 开始 | 2026-10-23 **00:25** CST |
+| 结束 | 2026-10-23 **07:03** CST |
+| 总时长 | **Training time 6:37:32** |
+| GPU | RTX 5090 Laptop，训时约 11 GB |
+| OUT | `/data/code/reLocation-all/reloc3r-grok-bot/checkpoints/zc_finetune_ZC_only_enu/` |
 
-盯盘建议（给主助手 / routine）：
+**best / final（训练侧 val loss；口径=相对位姿监督，非绝对 along/cross）：**
+
+| ckpt | 时间 (CST) | 对应 | val loss med / avg |
+| :--- | :--- | :--- | :--- |
+| **checkpoint-best.pth** | **05:57** | **Test25**（log `epoch=25`；用户侧记 epoch≈24） | **med≈0.080814 / avg≈0.089811** |
+| checkpoint-final.pth | 07:03 | epoch=30 | （权重落盘；末轮 Test30 见下） |
+| checkpoint-30.pth / last | 07:02–07:03 | epoch=30 | — |
+| 末轮 Test30 | 07:03 | epoch=30 | med≈0.083865 / avg≈0.090801（未刷新 best） |
+
+复现训练：
 
 ```bash
-# 进度
-tail -5 /home/yr/grok-bot-work/logs_zc_enu/finetune_zc_only_enu_20261023_002551.log
-# 是否结束
-test -f /data/code/reLocation-all/reloc3r-grok-bot/checkpoints/zc_finetune_ZC_only_enu/checkpoint-final.pth && echo DONE
-# 结束后三场景 ENU 评测
+cd /data/code/reLocation-all/reloc3r-grok-bot
+bash scripts/finetune_zc_only_enu.sh
+# 日志示例：/home/yr/grok-bot-work/logs_zc_enu/finetune_zc_only_enu_*.log
+```
+
+---
+
+## 4. D. 自测（三场景 ENU，已完成）
+
+- 脚本：`bash /home/yr/grok-bot-work/logs_zc_enu/run_eval_after_train.sh`
+- 权重默认：`checkpoints/zc_finetune_ZC_only_enu/checkpoint-best.pth`
+- `POSE_TAG=enu`，`SIM3_K=5`，`SIM3_BM3=1`，`EVAL_PARITY=odd`，`FT_TAG=zcOnlyENU`
+- **GT 口径 = ENU/RTK**（`DATA_ROOT=.../zc_fix_enu` 或 `zc_0923_enu`）
+- 评测日志：`/home/yr/grok-bot-work/logs_zc_enu/phase2_eval_three_scenes_20261023_070527.log`（exit 0，≈07:05–07:09 CST）
+
+### 4.1 主表（原文照抄；terr/rerr = mean/med/p90；平移 m、旋转 °）
+
+权重 = `checkpoint-best.pth`；tag = `sim5_bm3_zcOnlyENU_odd`：
+
+| 场景 | n | terr mean/med/p90 (m) | rerr mean/med/p90 (°) | relpose |
+| :--- | ---: | :--- | :--- | :--- |
+| 草坪同天 062224 | 338 | **0.06 / 0.05 / 0.11** | **0.41 / 0.35 / 0.73** | 160 ms/帧 |
+| 草坪跨天 081533 | 411 | **0.20 / 0.05 / 0.12** | **0.44 / 0.36 / 0.76** | 161 ms/帧 |
+| 大楼 0923 | 407 | **0.06 / 0.04 / 0.10** | **0.38 / 0.21 / 0.79** | 158 ms/帧 |
+
+原文行：
+
+```
+062224 sim5_bm3_zcOnlyENU_odd: n=338 terr mean/med/p90 = 0.06/0.05/0.11 | rerr mean/med/p90 = 0.41/0.35/0.73 | relpose 160 ms/帧
+081533 sim5_bm3_zcOnlyENU_odd: n=411 terr mean/med/p90 = 0.20/0.05/0.12 | rerr mean/med/p90 = 0.44/0.36/0.76 | relpose 161 ms/帧
+0923 sim5_bm3_zcOnlyENU_odd: n=407 terr mean/med/p90 = 0.06/0.04/0.10 | rerr mean/med/p90 = 0.38/0.21/0.79 | relpose 158 ms/帧
+```
+
+### 4.2 与 Phase1 `/map` zcOnly 对照（仅供参考；GT 坐标系不同，不可直接宣称绝对 cm 达标）
+
+Phase1（GT=/map，见 `ZC_Phase1_ZC-only微调_20261022.md` §3.1）zcOnly terr med：062224 **0.053** / 081533 **0.051** / 0923 **0.074** m。  
+Phase2（GT=ENU）terr med：062224 **0.05** / 081533 **0.05** / 0923 **0.04** m。相对量级接近；**本表不是 along/cross 绝对验收**，且 **勿宣称 cross&lt;3cm 已达标**。
+
+### 4.3 复现评测
+
+```bash
+bash /home/yr/grok-bot-work/logs_zc_enu/run_eval_after_train.sh
+# 或：
 cd /data/code/reLocation-all/reloc3r-grok-bot
 W=checkpoints/zc_finetune_ZC_only_enu/checkpoint-best.pth
 for k in 062224 081533 0923; do
@@ -123,15 +170,49 @@ for k in 062224 081533 0923; do
 done
 ```
 
+ckpt 路径：
+
+- best：`/data/code/reLocation-all/reloc3r-grok-bot/checkpoints/zc_finetune_ZC_only_enu/checkpoint-best.pth`
+- final：`/data/code/reLocation-all/reloc3r-grok-bot/checkpoints/zc_finetune_ZC_only_enu/checkpoint-final.pth`
+
 ---
 
-## 4. D. 自测（待满训）
+### 4.4 沿轨/横向平移误差（along-track / cross-track）
 
-- `eval_zc_sim3.py` 已支持 `POSE_TAG=enu` → `data/zc_*_enu`
-- 场景：062224 / 081533 / 0923，`EVAL_PARITY=odd`
-- 报告 terr/rerr，**口径标签 = ENU/RTK**
-- 对照 Phase1 `/map` 表（见 `ZC_Phase1_ZC-only微调_20261022.md` §3.1）
-- 可选：对 res npz 再跑 `eval_rtk_rescore` 得 along/cross cm（pred 已在 ENU 时 ep 应接近 sim3 terr）
+**定义（复用既有验收 / A2 口径，与 §4.1 terr 同套样本）**
+
+- 误差向量：`e = dvec = pred[:3,3] − gt[:3,3]`，来自 `eval_zc_sim3` 在 `POSE_TAG=enu` 下的 **绝对位姿**（MegaLoc top-5 + bm3 motion averaging 之后），**非** pairwise 相对 `t` 再做 Sim(3) 对齐。
+- 前进方向 `u`：GT 查询轨迹 **水平切向**（邻帧 cam xy 差分单位向量），与 `eval_rtk_rescore` / `gen_reloc3r_finetune_report.a2_split` / `docs/zc数据集上测试/tools/alongcross.py` 一致。
+- `along = |dot(e_xy, u)|`；`cross = ||e_xy − signed_along·u||`（**仅水平面 2D**，不含竖直）。
+- 说明：任务备选「相对 `t_gt` 单位向量」未采用——本评测 terr 是绝对 ep；验收 along&lt;10cm / 横向&lt;3cm 历来按轨迹切向分解绝对误差。
+
+**命令（零 GPU，读已有 npz）**
+
+```bash
+/data/software/conda/anaconda3/envs/mv2d/bin/python \
+  /data/code/reLocation-all/relopt/scripts/probe_along_cross_phase2_enu.py
+# 产物：
+#   /home/yr/grok-bot-work/logs_zc_enu/phase2_along_cross_20261023_071704.log
+#   /home/yr/grok-bot-work/logs_zc_enu/phase2_along_cross_20261023_071704.json
+# 输入 npz：reloc3r/data/zc_sim3/res_{062224,081533,0923}_sim5_bm3_zcOnlyENU_odd.npz
+```
+
+**三场景表（m；mean/med/p90；n_along = 有可用航向的帧）**
+
+| 场景 | n / n_along | terr mean/med/p90 | along mean/med/p90 | cross mean/med/p90 (2D) |
+| :--- | ---: | :--- | :--- | :--- |
+| 草坪同天 062224 | 338 / 331 | 0.0641 / 0.0510 / 0.1088 | **0.0468 / 0.0320 / 0.0836** | **0.0272 / 0.0204 / 0.0584** |
+| 草坪跨天 081533 | 411 / 397 | 0.1966 / 0.0477 / 0.1162 | **0.1268 / 0.0313 / 0.0925** | **0.1258 / 0.0174 / 0.0588** |
+| 大楼 0923 | 407 / 401 | 0.0567 / 0.0374 / 0.0972 | **0.0471 / 0.0264 / 0.0855** | **0.0161 / 0.0111 / 0.0319** |
+
+（附 cross3d 含竖直分量 mean/med/p90：062224 0.0349/0.0301/0.0670；081533 0.1330/0.0248/0.0659；0923 0.0226/0.0168/0.0382 — **验收对照用上表 2D cross**。）
+
+**与验收目标对照（客观，不夸大）**
+
+| 目标 | 观察 |
+| :--- | :--- |
+| 沿轨 &lt;10 cm | 三场景 **med** 均 &lt;10 cm（≈3.2 / 3.1 / 2.6 cm）；**p90** 亦均 &lt;10 cm（≈8.4 / 9.2 / 8.6 cm）。mean 在 081533 被少数大误差拉高（0.13 m）。 |
+| 横向 &lt;3 cm | 三场景 **med** 约 2.0 / 1.7 / 1.1 cm；但 **p90** 约 **5.8 / 5.9 / 3.2 cm**，仍高于 3 cm。**勿宣称 cross&lt;3cm 已达标**。跨包 NN≈15–20 cm 与 RTK 拟合底噪仍可能限制绝对尺子。 |
 
 ---
 
@@ -145,19 +226,27 @@ done
 | `reloc3r-grok-bot/eval_zc_sim3.py` | `POSE_TAG=enu` / DATA_ROOT_* |
 | `reloc3r/data/zc_fix_enu/`、`zc_0923_enu/` | 旁路数据（symlink 图 + 新 pose） |
 | `reloc3r/_db-q_pair_info/zcME_*`、`zc9ME_*` | 新 pair npy |
+| `relopt/scripts/probe_along_cross_phase2_enu.py` | **新建** Phase2 along/cross 探针（读 ENU npz） |
 
 ---
 
 ## 6. 未解决问题（≤5）
 
-1. 满训未完成 → 自测数字待补；完成后更新本文「收工」节。
-2. 草坪 ENU 与 `/map` 相对 GT 几乎相同 → Phase2 训练收益主要在**绝对验收尺子统一**，相对监督改善有限（需在收工对照表中写明）。
-3. RTK 拟合 resid p50≈5–7 cm + 跨包 NN≈15–20 cm → **cross&lt;3cm 可能不可达**；勿宣称 cm 达标。
-4. `/data` 磁盘约 40G 可用；满训多 ckpt 需盯空间（勿删原始数据，可清 `_smoke_*`）。
+1. **勿宣称 cross&lt;3cm 已达标**：§4.4 已给出与 terr 同套样本的沿轨/横向（2D）；三场景 cross **med**≈2.0/1.7/1.1 cm，但 **p90**≈5.8/5.9/3.2 cm 仍高于 3 cm；RTK 拟合 resid + 跨包 NN≈15–20 cm 底噪仍可能挡绝对尺子。
+2. 草坪 ENU 与 `/map` 相对 GT 几乎相同 → Phase2 训练收益主要在**绝对验收尺子统一**，相对监督改善有限；terr 表与 Phase1 对照仅供参考（GT 系不同）。
+3. 未另跑完整 `eval_rtk_rescore`（需 cands dump / dualgate 变体）；当前 along/cross 直接分解 ENU `dvec`（pred 已在 ENU，与 rescore 主路径等价于跳过 w·p+o 变换）。若要比对 dualgate，需另开 rescore。
+4. 大楼 0923 rerr p90≈0.79° 仍偏高（与 Phase1 zcOnly≈0.817° 同量级）；可择机扫 LR/epoch 或短续训。
 5. `off_rad` 未写入 R；若后续要双天线航向绝对对齐，需单独开关并重评。
 
 ---
 
-## 7. 收工占位
+## 7. 收工
 
-（满训 + 三场景 ENU 评测完成后填写：best epoch、terr/rerr 表、与 Phase1 `/map` 对照、结论。）
+| 项 | 结论 |
+| :--- | :--- |
+| 训练 | ✅ 30 epoch 完成；时长 **6:37:32**（00:25→07:03 CST） |
+| best | **Test25**，val med≈**0.080814** / avg≈**0.089811**，`checkpoint-best.pth` @05:57 |
+| final | `checkpoint-final.pth` @07:03；末轮 Test30 med≈0.083865 / avg≈0.090801 |
+| 评测 | ✅ 三场景 ENU exit 0；terr med ≈ **0.05 / 0.05 / 0.04** m；§4.4 along/cross 已记 |
+| 口径 | **GT=ENU/RTK**；along/cross=绝对 dvec×GT 轨迹切向（2D）；**勿宣称 cross&lt;3cm 已达标** |
+| 日志 | 训：`.../logs_zc_enu/finetune_zc_only_enu_20261023_002551.log`；评：`.../phase2_eval_three_scenes_20261023_070527.log`；沿轨：`.../phase2_along_cross_20261023_071704.log` |
