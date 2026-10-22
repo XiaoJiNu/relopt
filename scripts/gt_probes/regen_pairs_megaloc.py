@@ -17,15 +17,29 @@ ML = '/data/code/reLocation-all/MegaLoc/outputs/eval_zc_megaloc'
 OUT_DIR = f'{REPO}/_db-q_pair_info'
 TOPK = 10
 BL_MIN, BL_MAX = 0.15, 10.0
+# Phase2: DATA_TAG=enu → 读 zc_*_enu，输出前缀 zcME_/zc9ME_（不覆盖旧 zcM_*）
+# 亦可 POSE_ROOT=./data/zc_fix_enu 强制草坪根；大楼需成对存在 zc_0923_enu
+DATA_TAG = os.environ.get('DATA_TAG', '').strip().lower()
+_ENU = DATA_TAG in ('enu', 'enu_rtk', '1', 'true', 'yes')
+
+def _roots():
+    if _ENU:
+        return './data/zc_fix_enu', './data/zc_0923_enu', 'zcME', 'zc9ME'
+    return './data/zc_fix', './data/zc_0923', 'zc', 'zc9'
+
+_lawn, _bldg, _pref, _pref9 = _roots()
+# POSE_ROOT 仅覆盖草坪根（兼容任务书）；大楼根随 DATA_TAG
+if os.environ.get('POSE_ROOT'):
+    _lawn = os.environ['POSE_ROOT']
 
 SC = {  # key: (data_root_rel, db_bag, q_bag, megalloc_npz, out_prefix)
- '062224': ('./data/zc_fix', '20260921_064638', '20260921_062224',
-            f'{ML}/res__mowing__same_day_062224.npz', 'zc'),
- '081533': ('./data/zc_fix', '20260921_064638', '20260920_081533',
-            f'{ML}/res__mowing__cross_day_081533.npz', 'zc'),
- '0923': ('./data/zc_0923', '20260923_055425_real_robot_record_external_lz4',
+ '062224': (_lawn, '20260921_064638', '20260921_062224',
+            f'{ML}/res__mowing__same_day_062224.npz', _pref),
+ '081533': (_lawn, '20260921_064638', '20260920_081533',
+            f'{ML}/res__mowing__cross_day_081533.npz', _pref),
+ '0923': (_bldg, '20260923_055425_real_robot_record_external_lz4',
           '20260923_060415_real_robot_record_external_lz4',
-          f'{ML}/res__building_0923__query_060415.npz', 'zc9'),
+          f'{ML}/res__building_0923__query_060415.npz', _pref9),
 }
 
 def frames(root_abs, bag):
@@ -68,7 +82,9 @@ def main():
                 if len(lst) >= TOPK:
                     break
             rows.append(lst)
-        out = f'{OUT_DIR}/{pref}M_{q}_q-retrieval_db-step=1_topk={TOPK}.npy'
+        # pref already carries MegaLoc marker when ENU (zcME/zc9ME); else append M
+        mpref = pref if pref.endswith('M') or pref.endswith('ME') else pref + 'M'
+        out = f'{OUT_DIR}/{mpref}_{q}_q-retrieval_db-step=1_topk={TOPK}.npy'
         rows = [r for r in rows if r]  # drop queries with zero valid-baseline candidates (ZcRelpose would crash on empty)
         arr = np.empty(len(rows), dtype=object)
         arr[:] = rows
@@ -84,22 +100,41 @@ def main():
                               (np.median(bl_keep), np.percentile(bl_keep, 5), np.percentile(bl_keep, 95))],
                           cand_per_query_med=int(np.median([len(r) for r in rows])))
         print(json.dumps(stats[key], ensure_ascii=False))
-    # overlap vs NetVLAD pairs (sanity: same frames, different candidate sets)
+    # overlap vs NetVLAD (map only) or vs map-MegaLoc (ENU): same frame ids, cand sets
     for key, (root_rel, db, q, mlf, pref) in SC.items():
-        nv = np.load(f'{OUT_DIR}/{pref}_{q}_q-retrieval_db-step=1_topk=10.npy', allow_pickle=True)
-        mg = np.load(f'{OUT_DIR}/{pref}M_{q}_q-retrieval_db-step=1_topk=10.npy', allow_pickle=True)
-        mg_by_q = {r[0]['query_path']: {p['db_idx'] for p in r} for r in mg}
+        mpref = pref if pref.endswith('M') or pref.endswith('ME') else pref + 'M'
+        mg = np.load(f'{OUT_DIR}/{mpref}_{q}_q-retrieval_db-step=1_topk=10.npy', allow_pickle=True)
+        if _ENU:
+            # compare to map MegaLoc pairs (zcM_/zc9M_)
+            map_pref = 'zc9M' if key == '0923' else 'zcM'
+            ref_path = f'{OUT_DIR}/{map_pref}_{q}_q-retrieval_db-step=1_topk=10.npy'
+            label = 'overlap_map_megaloc_top10'
+        else:
+            map_pref = 'zc9' if key == '0923' else 'zc'
+            ref_path = f'{OUT_DIR}/{map_pref}_{q}_q-retrieval_db-step=1_topk=10.npy'
+            label = 'overlap_netvlad_top10'
+        if not os.path.isfile(ref_path):
+            print(key, 'skip overlap, missing', ref_path)
+            continue
+        nv = np.load(ref_path, allow_pickle=True)
+        # match by frame id (paths differ between enu/map roots)
+        def qfid(path):
+            return int(os.path.basename(path).split('frame-')[-1][:6])
+        mg_by_q = {qfid(r[0]['query_path']): {p['db_idx'] for p in r} for r in mg}
         inter = []
         for a in nv:
-            sb = mg_by_q.get(a[0]['query_path'])
+            sb = mg_by_q.get(qfid(a[0]['query_path']))
             if sb is None:
                 continue
             sa = {p['db_idx'] for p in a}
             inter.append(len(sa & sb))
-        stats[key + '_overlap_netvlad_top10'] = dict(mean=round(float(np.mean(inter)), 2),
-                                                     med=int(np.median(inter)))
-        print(key, 'overlap with NetVLAD top-10:', stats[key + '_overlap_netvlad_top10'])
-    json.dump(stats, open(f'{OUT_DIR}/regen_pairs_megaloc_stats.json', 'w'), ensure_ascii=False, indent=1)
+        if inter:
+            stats[key + '_' + label] = dict(mean=round(float(np.mean(inter)), 2),
+                                            med=int(np.median(inter)))
+            print(key, label + ':', stats[key + '_' + label])
+    stats_name = 'regen_pairs_megaloc_enu_stats.json' if _ENU else 'regen_pairs_megaloc_stats.json'
+    json.dump(stats, open(f'{OUT_DIR}/{stats_name}', 'w'), ensure_ascii=False, indent=1)
+    print('wrote', f'{OUT_DIR}/{stats_name}')
 
 if __name__ == '__main__':
     main()
