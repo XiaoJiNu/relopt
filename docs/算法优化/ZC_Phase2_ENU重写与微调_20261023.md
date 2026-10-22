@@ -103,6 +103,7 @@ DATA_TAG=enu python relopt/scripts/gt_probes/regen_pairs_megaloc.py
 | 开始 | 2026-10-23 00:25 CST |
 | 节奏 | ~1500 it/epoch × ~0.48 s ≈ 12 min 训 + ~1 min eval |
 | ETA | **约 06:00–06:30 CST**（30 epoch ≈ 5.5–6.5 h） |
+| 日志缓冲 | 当前 nohup 下 stdout 块缓冲；盯 `events.out.tfevents*` / GPU / ckpt；脚本已加 PYTHONUNBUFFERED 供重跑 |
 | GPU | RTX 5090 Laptop，占用约 11–18 GB |
 
 盯盘建议（给主助手 / routine）：
