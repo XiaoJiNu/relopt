@@ -10,6 +10,7 @@
 | `main` | 文档 + 骨架 |
 | `opt-a` | 方案 A：Reloc3r+MegaLoc+sim3 路线（P0-2 encoder 缓存、P1-2 sim5+bm3、P1-1 EKF 融合原型）；**汇总记录文档在本分支** `docs/汇总/` |
 | `opt-b` | 方案 B：XFeat 路线（P0-1 R 组合修复 + 逐帧 dump、P1-2 top_k/守卫角 sweep） |
+| `grok-bot` | ZC Phase0–2 ENU + Phase2后 P1–P7：文档、探针、ENU 旁路；`scripts/reloc3r_zc/` 镜像评测/微调入口 |
 
 ## 数据与环境（与既有复现完全相同）
 
