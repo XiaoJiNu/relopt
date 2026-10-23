@@ -30,7 +30,7 @@ SC = {
         "20260923_060415_real_robot_record_external_lz4",
     ),
 }
-NPZ_TAG = "sim5_bm3_zcOnlyENU_odd"
+NPZ_TAG = os.environ.get("NPZ_TAG", "sim5_bm3_zcOnlyENU_odd")
 MIN_STEP = 1e-3  # m；过短切向跳过
 
 
